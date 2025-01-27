@@ -246,20 +246,26 @@ jobs:
           creds: ${{ secrets.SERVICEPRINCIPAL }}
       - name: Download and Install AzCopy 10.13.0
         run: |
+          # Define the installation directory
+          AZCOPY_DIR=$HOME/.azure/bin
+          
           # Create the directory if it doesn't exist
-          mkdir -p /root/.azure/bin
+          mkdir -p $AZCOPY_DIR
           
           # Download the specific AzCopy version
           wget -q https://azcopyvnext.azureedge.net/release20210330/azcopy_linux_amd64_10.13.0.tar.gz -O azcopy.tar.gz
           
-          # Extract and move the binary to /root/.azure/bin
+          # Extract the tarball and move AzCopy to the specified directory
           mkdir azcopy
           tar -xzf azcopy.tar.gz -C azcopy --strip-components=1
-          mv azcopy/azcopy /root/.azure/bin/azcopy
-          chmod +x /root/.azure/bin/azcopy
+          mv azcopy/azcopy $AZCOPY_DIR
+          chmod +x $AZCOPY_DIR/azcopy
+
+          # Add AzCopy to PATH
+          echo "$AZCOPY_DIR" >> $GITHUB_PATH
 
           # Verify installation
-          /root/.azure/bin/azcopy --version
+          $AZCOPY_DIR/azcopy --version
       - name: get carts api endpoint
         uses: azure/CLI@v1
         id: get-cartsApiEndpoint
