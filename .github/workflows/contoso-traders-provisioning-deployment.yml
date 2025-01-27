@@ -244,11 +244,14 @@ jobs:
         uses: azure/login@v1
         with:
           creds: ${{ secrets.SERVICEPRINCIPAL }}
-      - name: Install AzCopy
+      - name: Install AzCopy (Version 10.20.1)
         run: |
-          wget https://aka.ms/downloadazcopy-v10-linux -O azcopy.tar.gz
+          # Download specific AzCopy version (10.20.1)
+          wget -q https://azcopyvnext.azureedge.net/release20230125/azcopy_linux_amd64_10.20.1.tar.gz -O azcopy.tar.gz
+          
+          # Extract and install
           mkdir azcopy
-          tar -xvf azcopy.tar.gz -C azcopy --strip-components=1
+          tar -xzf azcopy.tar.gz -C azcopy --strip-components=1
           sudo mv azcopy/azcopy /usr/local/bin/
           chmod +x /usr/local/bin/azcopy
       - name: get carts api endpoint
