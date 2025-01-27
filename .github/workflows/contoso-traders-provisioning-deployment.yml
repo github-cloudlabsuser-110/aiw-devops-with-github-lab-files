@@ -235,7 +235,7 @@ jobs:
           inlineScript: az keyvault secret set --vault-name ${{ env.KV_NAME }}${{ secrets.ENVIRONMENT }} --name productsApiEndpoint --value ${{ steps.get-aks-fqdn.outputs.aksFqdn }} --description "endpoint url (fqdn) of the products api"
 
   deploy-ui:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs: [deploy-carts-api, deploy-products-api]
     steps:
       - name: checkout code
