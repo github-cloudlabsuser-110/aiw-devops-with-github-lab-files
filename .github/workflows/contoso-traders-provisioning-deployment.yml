@@ -237,47 +237,108 @@ jobs:
   deploy-ui:
     runs-on: ubuntu-latest
     needs: [deploy-carts-api, deploy-products-api]
+
     steps:
-      - name: checkout code
+      # Step 1: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v3
-      - name: azure login
+
+      # Step 2: Azure Login
+      - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-      - name: get carts api endpoint
+
+      # Step 3: Debug environment variables
+      - name: Debug environment variables
+        run: env | grep AZURE
+
+      # Step 4: Get Carts API Endpoint
+      - name: Get carts API endpoint
         uses: azure/CLI@v2
-        id: get-cartsApiEndpoint
         with:
-          inlineScript: echo "cartsApiEndpoint"="$(az keyvault secret show --vault-name ${{ env.KV_NAME }}${{ secrets.ENVIRONMENT }} --name cartsApiEndpoint --query value -o tsv)" >> $GITHUB_OUTPUT
-      - name: get products api endpoint
-        uses: azure/CLI@v1
-        id: get-productsApiEndpoint
+          scriptType: bash
+          inlineScript: |
+            set -e
+            echo "Fetching carts API endpoint..."
+            n=0
+            until [ "$n" -ge 5 ]
+            do
+              cartsApiEndpoint=$(az keyvault secret show --vault-name "${KV_NAME}${secrets.ENVIRONMENT}" --name cartsApiEndpoint --query value -o tsv) && break
+              n=$((n+1))
+              echo "Retry $n/5 failed. Retrying in 10 seconds..."
+              sleep 10
+            done
+            echo "cartsApiEndpoint=$cartsApiEndpoint" >> $GITHUB_ENV
+
+      # Step 5: Get Products API Endpoint
+      - name: Get products API endpoint
+        uses: azure/CLI@v2
         with:
-          inlineScript: echo "productsApiEndpoint"="$(az keyvault secret show --vault-name ${{ env.KV_NAME }}${{ secrets.ENVIRONMENT }} --name productsApiEndpoint --query value -o tsv)" >> $GITHUB_OUTPUT
-      - name: substitute tokens in ui configuration
+          scriptType: bash
+          inlineScript: |
+            set -e
+            echo "Fetching products API endpoint..."
+            n=0
+            until [ "$n" -ge 5 ]
+            do
+              productsApiEndpoint=$(az keyvault secret show --vault-name "${KV_NAME}${secrets.ENVIRONMENT}" --name productsApiEndpoint --query value -o tsv) && break
+              n=$((n+1))
+              echo "Retry $n/5 failed. Retrying in 10 seconds..."
+              sleep 10
+            done
+            echo "productsApiEndpoint=$productsApiEndpoint" >> $GITHUB_ENV
+
+      # Step 6: Substitute Tokens in UI Configuration
+      - name: Substitute tokens in UI configuration
         uses: cschleiden/replace-tokens@v1.2
         with:
           tokenPrefix: "{{"
           tokenSuffix: "}}"
           files: ./src/ContosoTraders.Ui.Website/.env
         env:
-          CARTS_API_ENDPOINT: ${{ steps.get-cartsApiEndpoint.outputs.cartsApiEndpoint }}
-          PRODUCTS_API_ENDPOINT: ${{ steps.get-productsApiEndpoint.outputs.productsApiEndpoint }}
-      - name: install node v16
+          CARTS_API_ENDPOINT: ${{ env.cartsApiEndpoint }}
+          PRODUCTS_API_ENDPOINT: ${{ env.productsApiEndpoint }}
+
+      # Step 7: Install Node v16
+      - name: Install Node.js v16
         uses: actions/setup-node@v3
         with:
-          node-version: 16          
-      - name: npm install
-        run: npm install --legacy-peer-deps         
+          node-version: 16
+
+      # Step 8: Install Node Dependencies
+      - name: Install npm dependencies
+        run: npm install --legacy-peer-deps
         working-directory: src/ContosoTraders.Ui.Website
-      - name: npm run build
+
+      # Step 9: Build the Application
+      - name: Build the application
         run: npm run build
         working-directory: src/ContosoTraders.Ui.Website
-      - name: deploy to storage
-        uses: azure/CLI@v1
+
+      # Step 10: Deploy to Azure Storage
+      - name: Deploy to Azure Storage
+        uses: azure/CLI@v2
         with:
-          inlineScript: az storage blob sync --account-name '${{ env.UI_STORAGE_ACCOUNT_NAME }}${{ secrets.ENVIRONMENT }}' -c '$web' -s 'src/ContosoTraders.Ui.Website/build'
-      - name: purge CDN endpoint
-        uses: azure/CLI@v1
+          scriptType: bash
+          inlineScript: |
+            set -e
+            echo "Deploying to Azure Storage..."
+            az storage blob sync \
+              --account-name "${UI_STORAGE_ACCOUNT_NAME}${secrets.ENVIRONMENT}" \
+              -c '$web' \
+              -s 'src/ContosoTraders.Ui.Website/build'
+
+      # Step 11: Purge CDN Endpoint
+      - name: Purge CDN endpoint
+        uses: azure/CLI@v2
         with:
-          inlineScript: az cdn endpoint purge --no-wait --content-paths '/*' -n '${{ env.UI_CDN_ENDPOINT_NAME }}${{ secrets.ENVIRONMENT }}' -g '${{ env.RESOURCE_GROUP_NAME }}${{ secrets.ENVIRONMENT }}' --profile-name '${{ env.CDN_PROFILE_NAME }}${{ secrets.ENVIRONMENT }}'
+          scriptType: bash
+          inlineScript: |
+            set -e
+            echo "Purging CDN endpoint..."
+            az cdn endpoint purge --no-wait \
+              --content-paths '/*' \
+              -n "${UI_CDN_ENDPOINT_NAME}${secrets.ENVIRONMENT}" \
+              -g "${RESOURCE_GROUP_NAME}${secrets.ENVIRONMENT}" \
+              --profile-name "${CDN_PROFILE_NAME}${secrets.ENVIRONMENT}"
