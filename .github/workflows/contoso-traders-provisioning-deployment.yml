@@ -233,12 +233,6 @@ jobs:
         uses: azure/CLI@v1
         with:
           inlineScript: az keyvault secret set --vault-name ${{ env.KV_NAME }}${{ secrets.ENVIRONMENT }} --name productsApiEndpoint --value ${{ steps.get-aks-fqdn.outputs.aksFqdn }} --description "endpoint url (fqdn) of the products api"
-
-jobs:
-  deploy-ui:
-    runs-on: ubuntu-latest
-    container:
-      image: mcr.microsoft.com/azure-cli:2.52.0
       - name: checkout code
         uses: actions/checkout@v3
       - name: azure login
